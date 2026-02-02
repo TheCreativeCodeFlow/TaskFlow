@@ -1,16 +1,8 @@
-// Task Card Component with swipe gestures
+// Premium Task Card Component
+// Using React Native Animated API for reliable micro-interactions
 
-import React from 'react';
-import { StyleSheet, Text, View, Dimensions } from 'react-native';
-import Animated, {
-    useAnimatedStyle,
-    useSharedValue,
-    withTiming,
-    withSpring,
-    runOnJS,
-    interpolate,
-    Extrapolation,
-} from 'react-native-reanimated';
+import React, { useRef, useEffect } from 'react';
+import { StyleSheet, Text, View, Dimensions, Animated, Easing } from 'react-native';
 import {
     Gesture,
     GestureDetector,
@@ -32,113 +24,256 @@ interface TaskCardProps {
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete }) => {
-    const translateX = useSharedValue(0);
-    const cardHeight = useSharedValue(72);
-    const cardOpacity = useSharedValue(1);
-    const cardScale = useSharedValue(1);
+    // Animation values using React Native Animated
+    const translateX = useRef(new Animated.Value(0)).current;
+    const cardHeight = useRef(new Animated.Value(72)).current;
+    const cardOpacity = useRef(new Animated.Value(1)).current;
+
+    // Premium completion animations
+    const textOpacity = useRef(new Animated.Value(task.status === 'completed' ? 0.5 : 1)).current;
+    const cardShift = useRef(new Animated.Value(0)).current;
+    const accentOpacity = useRef(new Animated.Value(0)).current;
+    const strikeWidth = useRef(new Animated.Value(task.status === 'completed' ? 1 : 0)).current;
 
     const isCompleted = task.status === 'completed';
     const categoryColor = categoryColors[task.category] || colors.textMuted;
 
+    // Track previous completion state for animation triggers
+    const prevCompletedRef = useRef(isCompleted);
+
+    useEffect(() => {
+        // Only animate if state actually changed
+        if (prevCompletedRef.current !== isCompleted) {
+            prevCompletedRef.current = isCompleted;
+
+            if (isCompleted) {
+                // Card shift animation - move right and settle back
+                Animated.sequence([
+                    Animated.timing(cardShift, {
+                        toValue: 8,
+                        duration: 150,
+                        easing: Easing.out(Easing.ease),
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(cardShift, {
+                        toValue: 0,
+                        duration: 200,
+                        easing: Easing.out(Easing.ease),
+                        useNativeDriver: true,
+                    }),
+                ]).start();
+
+                // Text fade animation
+                Animated.timing(textOpacity, {
+                    toValue: 0.5,
+                    duration: 200,
+                    delay: 100,
+                    useNativeDriver: true,
+                }).start();
+
+                // Strike-through animation
+                Animated.timing(strikeWidth, {
+                    toValue: 1,
+                    duration: 200,
+                    delay: 150,
+                    easing: Easing.out(Easing.ease),
+                    useNativeDriver: true,
+                }).start();
+
+                // Green accent flash
+                Animated.sequence([
+                    Animated.timing(accentOpacity, {
+                        toValue: 1,
+                        duration: 150,
+                        useNativeDriver: true,
+                    }),
+                    Animated.delay(150),
+                    Animated.timing(accentOpacity, {
+                        toValue: 0,
+                        duration: 200,
+                        useNativeDriver: true,
+                    }),
+                ]).start();
+            } else {
+                // Reset animations
+                Animated.parallel([
+                    Animated.timing(textOpacity, {
+                        toValue: 1,
+                        duration: 150,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(strikeWidth, {
+                        toValue: 0,
+                        duration: 100,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(cardShift, {
+                        toValue: 0,
+                        duration: 150,
+                        useNativeDriver: true,
+                    }),
+                ]).start();
+            }
+        }
+    }, [isCompleted, cardShift, textOpacity, strikeWidth, accentOpacity]);
+
     const triggerHaptic = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     };
 
     const handleDelete = () => {
-        cardHeight.value = withTiming(0, { duration: 200 });
-        cardOpacity.value = withTiming(0, { duration: 200 }, () => {
-            runOnJS(onDelete)();
+        Animated.parallel([
+            Animated.timing(cardHeight, {
+                toValue: 0,
+                duration: 200,
+                useNativeDriver: false,
+            }),
+            Animated.timing(cardOpacity, {
+                toValue: 0,
+                duration: 200,
+                useNativeDriver: true,
+            }),
+        ]).start(() => {
+            onDelete();
         });
     };
 
-    const handleComplete = () => {
-        runOnJS(triggerHaptic)();
-        runOnJS(onToggle)();
-        translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
+    const handleSwipeComplete = () => {
+        triggerHaptic();
+        onToggle();
+        Animated.timing(translateX, {
+            toValue: 0,
+            duration: 200,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: true,
+        }).start();
     };
 
     const panGesture = Gesture.Pan()
         .activeOffsetX([-10, 10])
         .onUpdate((event) => {
-            translateX.value = event.translationX;
+            translateX.setValue(event.translationX);
         })
         .onEnd((event) => {
-            // Swipe left to delete
             if (event.translationX < -SWIPE_THRESHOLD) {
-                translateX.value = withTiming(-SCREEN_WIDTH, { duration: 200 });
-                runOnJS(triggerHaptic)();
-                runOnJS(handleDelete)();
-            }
-            // Swipe right to complete
-            else if (event.translationX > SWIPE_THRESHOLD && !isCompleted) {
-                handleComplete();
-            }
-            // Reset position
-            else {
-                translateX.value = withSpring(0, { damping: 20, stiffness: 200 });
+                Animated.timing(translateX, {
+                    toValue: -SCREEN_WIDTH,
+                    duration: 200,
+                    useNativeDriver: true,
+                }).start(() => {
+                    triggerHaptic();
+                    handleDelete();
+                });
+            } else if (event.translationX > SWIPE_THRESHOLD && !isCompleted) {
+                handleSwipeComplete();
+            } else {
+                Animated.spring(translateX, {
+                    toValue: 0,
+                    useNativeDriver: true,
+                    damping: 20,
+                    stiffness: 200,
+                }).start();
             }
         });
 
-    const cardAnimatedStyle = useAnimatedStyle(() => ({
-        transform: [
-            { translateX: translateX.value },
-            { scale: cardScale.value },
-        ],
-    }));
-
-    const containerAnimatedStyle = useAnimatedStyle(() => ({
-        height: cardHeight.value,
-        opacity: cardOpacity.value,
-        marginBottom: interpolate(cardOpacity.value, [0, 1], [0, 12]),
-    }));
-
-    const deleteBackgroundStyle = useAnimatedStyle(() => {
-        const opacity = interpolate(
-            translateX.value,
-            [-SCREEN_WIDTH * 0.5, -50, 0],
-            [1, 0.8, 0],
-            Extrapolation.CLAMP
-        );
-        return { opacity };
+    // Calculate margin based on opacity for delete animation
+    const marginBottom = cardOpacity.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, 12],
     });
 
-    const completeBackgroundStyle = useAnimatedStyle(() => {
-        const opacity = interpolate(
-            translateX.value,
-            [0, 50, SCREEN_WIDTH * 0.5],
-            [0, 0.8, 1],
-            Extrapolation.CLAMP
-        );
-        return { opacity };
+    // Delete background opacity based on swipe
+    const deleteOpacity = translateX.interpolate({
+        inputRange: [-SCREEN_WIDTH * 0.5, -50, 0],
+        outputRange: [1, 0.8, 0],
+        extrapolate: 'clamp',
+    });
+
+    // Complete background opacity based on swipe
+    const completeOpacity = translateX.interpolate({
+        inputRange: [0, 50, SCREEN_WIDTH * 0.5],
+        outputRange: [0, 0.8, 1],
+        extrapolate: 'clamp',
     });
 
     return (
-        <Animated.View style={[styles.container, containerAnimatedStyle]}>
-            {/* Delete background (left swipe) */}
-            <Animated.View style={[styles.actionBackground, styles.deleteBackground, deleteBackgroundStyle]}>
+        <Animated.View
+            style={[
+                styles.container,
+                {
+                    height: cardHeight,
+                    opacity: cardOpacity,
+                    marginBottom,
+                }
+            ]}
+        >
+            {/* Delete background */}
+            <Animated.View
+                style={[
+                    styles.actionBackground,
+                    styles.deleteBackground,
+                    { opacity: deleteOpacity }
+                ]}
+            >
                 <Text style={styles.actionText}>Delete</Text>
             </Animated.View>
 
-            {/* Complete background (right swipe) */}
-            <Animated.View style={[styles.actionBackground, styles.completeBackground, completeBackgroundStyle]}>
+            {/* Complete background */}
+            <Animated.View
+                style={[
+                    styles.actionBackground,
+                    styles.completeBackground,
+                    { opacity: completeOpacity }
+                ]}
+            >
                 <Text style={styles.actionText}>Complete</Text>
             </Animated.View>
 
             {/* Main card */}
             <GestureDetector gesture={panGesture}>
-                <Animated.View style={[styles.card, cardAnimatedStyle]}>
+                <Animated.View
+                    style={[
+                        styles.card,
+                        {
+                            transform: [
+                                { translateX: Animated.add(translateX, cardShift) }
+                            ]
+                        }
+                    ]}
+                >
+                    {/* Success accent line */}
+                    <Animated.View
+                        style={[
+                            styles.accentLine,
+                            { opacity: accentOpacity }
+                        ]}
+                    />
+
                     <Checkbox checked={isCompleted} onToggle={onToggle} />
 
                     <View style={styles.content}>
-                        <Text
-                            style={[
-                                styles.title,
-                                isCompleted && styles.titleCompleted,
-                            ]}
-                            numberOfLines={1}
-                        >
-                            {task.title}
-                        </Text>
+                        <View style={styles.titleContainer}>
+                            <Animated.Text
+                                style={[
+                                    styles.title,
+                                    { opacity: textOpacity },
+                                ]}
+                                numberOfLines={1}
+                            >
+                                {task.title}
+                            </Animated.Text>
+
+                            {/* Strike-through line */}
+                            <Animated.View
+                                style={[
+                                    styles.strikeLine,
+                                    {
+                                        transform: [{ scaleX: strikeWidth }],
+                                        opacity: strikeWidth,
+                                    }
+                                ]}
+                            />
+                        </View>
 
                         {task.category && (
                             <View style={[styles.categoryBadge, { backgroundColor: `${categoryColor}20` }]}>
@@ -191,6 +326,17 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderWidth: 1,
         borderColor: colors.border,
+        overflow: 'hidden',
+    },
+    accentLine: {
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        bottom: 0,
+        width: 3,
+        backgroundColor: colors.success,
+        borderTopLeftRadius: 16,
+        borderBottomLeftRadius: 16,
     },
     content: {
         flex: 1,
@@ -199,15 +345,22 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
     },
-    title: {
+    titleContainer: {
         flex: 1,
+        position: 'relative',
+        justifyContent: 'center',
+    },
+    title: {
         fontSize: typography.fontSize.base,
         fontWeight: typography.fontWeight.medium,
         color: colors.text,
     },
-    titleCompleted: {
-        color: colors.textMuted,
-        textDecorationLine: 'line-through',
+    strikeLine: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        height: 1.5,
+        backgroundColor: colors.textMuted,
     },
     categoryBadge: {
         paddingHorizontal: 10,
