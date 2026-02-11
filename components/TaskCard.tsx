@@ -12,6 +12,7 @@ import { colors, categoryColors } from '../constants/colors';
 import { typography } from '../constants/typography';
 import { Task } from '../types/task';
 import { getCategoryLabel } from '../utils/helpers';
+import { formatDeadline, isDeadlineSoon, isDeadlineOverdue } from '../utils/notifications';
 import Checkbox from './Checkbox';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -273,6 +274,19 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete }) 
                                     }
                                 ]}
                             />
+
+                            {/* Deadline display */}
+                            {task.deadline && (
+                                <Text
+                                    style={[
+                                        styles.deadlineText,
+                                        isDeadlineOverdue(task.deadline) && styles.deadlineOverdue,
+                                        isDeadlineSoon(task.deadline) && !isDeadlineOverdue(task.deadline) && styles.deadlineSoon,
+                                    ]}
+                                >
+                                    Due: {formatDeadline(task.deadline)}
+                                </Text>
+                            )}
                         </View>
 
                         {task.category && (
@@ -361,6 +375,18 @@ const styles = StyleSheet.create({
         right: 0,
         height: 1.5,
         backgroundColor: colors.textMuted,
+    },
+    deadlineText: {
+        fontSize: typography.fontSize.xs,
+        color: colors.textMuted,
+        marginTop: 4,
+        fontWeight: typography.fontWeight.medium,
+    },
+    deadlineSoon: {
+        color: '#FFA500',
+    },
+    deadlineOverdue: {
+        color: colors.error,
     },
     categoryBadge: {
         paddingHorizontal: 10,

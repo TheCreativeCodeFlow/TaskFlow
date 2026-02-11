@@ -21,6 +21,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { colors } from '../constants/colors';
 import { typography } from '../constants/typography';
 import { TaskCategory } from '../types/task';
@@ -29,7 +30,7 @@ import CategoryChip from './CategoryChip';
 interface AddTaskModalProps {
     visible: boolean;
     onClose: () => void;
-    onSave: (title: string, description?: string, category?: TaskCategory) => void;
+    onSave: (title: string, description?: string, category?: TaskCategory, deadline?: number) => void;
 }
 
 const categories: TaskCategory[] = ['work', 'personal', 'study', 'project', 'other'];
@@ -42,6 +43,8 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<TaskCategory>('other');
+    const [deadline, setDeadline] = useState<Date | undefined>(undefined);
+    const [showDatePicker, setShowDatePicker] = useState(false);
 
     const translateY = useSharedValue(500);
     const overlayOpacity = useSharedValue(0);
@@ -60,6 +63,8 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
         setTitle('');
         setDescription('');
         setSelectedCategory('other');
+        setDeadline(undefined);
+        setShowDatePicker(false);
     };
 
     const handleClose = () => {
@@ -71,7 +76,12 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
     const handleSave = () => {
         if (title.trim()) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            onSave(title, description || undefined, selectedCategory);
+            onSave(
+                title, 
+                description || undefined, 
+                selectedCategory,
+                deadline ? deadline.getTime() : undefined
+            );
             resetForm();
             onClose();
         } else {
@@ -166,6 +176,63 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                         />
                                     ))}
                                 </View>
+                            </View>
+
+                            {/* Deadline selector */}
+                            <View style={styles.inputContainer}>
+                                <Text style={styles.label}>Deadline (optional)</Text>
+                                <Pressable
+                                    style={styles.deadlineButton}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setShowDatePicker(true);
+                                    }}
+                                >
+                                    <Text style={styles.deadlineButtonText}>
+                                        {deadline 
+                                            ? deadline.toLocaleDateString('en-US', { 
+                                                month: 'short', 
+                                                day: 'numeric', 
+                                                year: 'numeric' 
+                                              })
+                                            : '+ Set Deadline'
+                                        }
+                                    </Text>
+                                    {deadline && (
+                                        <Pressable
+                                            style={styles.clearDeadlineButton}
+                                            onPress={(e) => {
+                                                e.stopPropagation();
+                                                setDeadline(undefined);
+                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                            }}
+                                        >
+                                            <Text style={styles.clearDeadlineText}>✕</Text>
+                                        </Pressable>
+                                    )}
+                                </Pressable>
+
+                                {showDatePicker && (
+                                    <DateTimePicker
+                                        value={deadline || new Date()}
+                                        mode="date"
+                                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                        minimumDate={new Date()}
+                                        onChange={(event: DateTimePickerEvent, selectedDate?: Date) => {
+                                            if (Platform.OS === 'android') {
+                                                setShowDatePicker(false);
+                                            }
+                                            if (event.type === 'set' && selectedDate) {
+                                                setDeadline(selectedDate);
+                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                            }
+                                            if (event.type === 'dismissed') {
+                                                setShowDatePicker(false);
+                                            }
+                                        }}
+                                        themeVariant="dark"
+                                    />
+                                )}
                             </View>
                         </ScrollView>
 
@@ -267,6 +334,35 @@ const styles = StyleSheet.create({
     categoryContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
+    },
+    deadlineButton: {
+        backgroundColor: colors.surfaceLight,
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        borderWidth: 1,
+        borderColor: colors.border,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    deadlineButtonText: {
+        fontSize: typography.fontSize.base,
+        color: colors.text,
+        fontWeight: typography.fontWeight.medium,
+    },
+    clearDeadlineButton: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: colors.error + '20',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    clearDeadlineText: {
+        fontSize: typography.fontSize.sm,
+        color: colors.error,
+        fontWeight: typography.fontWeight.bold,
     },
     saveButton: {
         backgroundColor: colors.primary,

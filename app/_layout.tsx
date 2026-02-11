@@ -1,6 +1,6 @@
 // Root Layout - App Entry Point
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import { StyleSheet, View, ActivityIndicator, Text } from 'react-native';
 import { TaskProvider, useTasks } from '../context/TaskContext';
 import { colors } from '../constants/colors';
 import SplashScreen from '../components/SplashScreen';
+import { requestNotificationPermissions } from '../utils/notifications';
 
 function LoadingScreen() {
     return (
@@ -59,6 +60,14 @@ function AppContent() {
 
 export default function RootLayout() {
     const [showSplash, setShowSplash] = useState(true);
+
+    // Request notification permissions on app start
+    useEffect(() => {
+        const initializeNotifications = async () => {
+            await requestNotificationPermissions();
+        };
+        initializeNotifications();
+    }, []);
 
     const handleSplashFinish = () => {
         setShowSplash(false);

@@ -24,14 +24,25 @@
         "foregroundImage": "./assets/logo.png",
         "backgroundColor": "#0D1117"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "POST_NOTIFICATIONS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/logo.png",
+          "color": "#00F5FF",
+          "mode": "production"
+        }
+      ]
     ],
     "extra": {
       "router": {},
