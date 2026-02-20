@@ -1,4 +1,4 @@
-// Home Screen - Main Task Dashboard
+// Home Screen - Modern Task Dashboard
 
 import React, { useState } from 'react';
 import {
@@ -13,19 +13,31 @@ import { useRouter } from 'expo-router';
 import { useTasks } from '../context/TaskContext';
 import { colors } from '../constants/colors';
 import { typography } from '../constants/typography';
-import { getGreeting, formatDate } from '../utils/helpers';
+import { formatDate } from '../utils/helpers';
 import TaskCard from '../components/TaskCard';
 import FloatingActionButton from '../components/FloatingActionButton';
 import AddTaskModal from '../components/AddTaskModal';
 import EmptyState from '../components/EmptyState';
+import DashboardStats from '../components/DashboardStats';
 
 export default function HomeScreen() {
     const router = useRouter();
-    const { pendingTasks, completedTasks, addTask, deleteTask, toggleTask } = useTasks();
+    const { tasks, pendingTasks, completedTasks, addTask, deleteTask, toggleTask } = useTasks();
     const [isModalVisible, setIsModalVisible] = useState(false);
+    const [editingTask, setEditingTask] = useState<any>(null);
 
-    const handleAddTask = (title: string, description?: string, category?: any) => {
-        addTask(title, description, category);
+    const handleAddTask = (title: string, description?: string, category?: any, deadline?: number) => {
+        addTask(title, description, category, deadline);
+    };
+
+    const handleEditTask = (task: any) => {
+        setEditingTask(task);
+        setIsModalVisible(true);
+    };
+
+    const handleCloseModal = () => {
+        setIsModalVisible(false);
+        setEditingTask(null);
     };
 
     const renderTask = ({ item }: { item: any }) => (
@@ -33,16 +45,17 @@ export default function HomeScreen() {
             task={item}
             onToggle={() => toggleTask(item.id)}
             onDelete={() => deleteTask(item.id)}
+            onEdit={() => handleEditTask(item)}
         />
     );
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
-            {/* Header */}
+            {/* Modern Header */}
             <View style={styles.header}>
-                <View>
-                    <Text style={styles.greeting}>{getGreeting()} 👋</Text>
-                    <Text style={styles.date}>{formatDate()}</Text>
+                <View style={styles.headerLeft}>
+                    <Text style={styles.appTitle}>TaskFlow</Text>
+                    <Text style={styles.currentDate}>{formatDate()}</Text>
                 </View>
 
                 {completedTasks.length > 0 && (
@@ -51,42 +64,43 @@ export default function HomeScreen() {
                         onPress={() => router.push('/completed')}
                     >
                         <Text style={styles.completedButtonText}>
-                            {completedTasks.length} done
+                            ✓ {completedTasks.length}
                         </Text>
                     </Pressable>
                 )}
             </View>
 
-            {/* Task count */}
-            {pendingTasks.length > 0 && (
-                <View style={styles.taskCount}>
-                    <Text style={styles.taskCountText}>
-                        {pendingTasks.length} task{pendingTasks.length !== 1 ? 's' : ''} remaining
-                    </Text>
-                </View>
-            )}
+            {/* Dashboard Stats */}
+            <DashboardStats tasks={tasks} />
 
             {/* Task list */}
             {pendingTasks.length === 0 ? (
                 <EmptyState />
             ) : (
-                <FlatList
-                    data={pendingTasks}
-                    renderItem={renderTask}
-                    keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.listContent}
-                    showsVerticalScrollIndicator={false}
-                />
+                <>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Active Tasks</Text>
+                        <Text style={styles.sectionCount}>{pendingTasks.length}</Text>
+                    </View>
+                    <FlatList
+                        data={pendingTasks}
+                        renderItem={renderTask}
+                        keyExtractor={(item) => item.id}
+                        contentContainerStyle={styles.listContent}
+                        showsVerticalScrollIndicator={false}
+                    />
+                </>
             )}
 
             {/* FAB */}
             <FloatingActionButton onPress={() => setIsModalVisible(true)} />
 
-            {/* Add Task Modal */}
+            {/* Add/Edit Task Modal */}
             <AddTaskModal
                 visible={isModalVisible}
-                onClose={() => setIsModalVisible(false)}
+                onClose={handleCloseModal}
                 onSave={handleAddTask}
+                editingTask={editingTask}
             />
         </SafeAreaView>
     );
@@ -100,42 +114,62 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        paddingHorizontal: 24,
+        alignItems: 'center',
+        paddingHorizontal: 20,
         paddingTop: 16,
-        paddingBottom: 24,
+        paddingBottom: 20,
     },
-    greeting: {
-        fontSize: typography.fontSize['2xl'],
+    headerLeft: {
+        flex: 1,
+    },
+    appTitle: {
+        fontSize: typography.fontSize['3xl'],
         fontWeight: typography.fontWeight.bold,
         color: colors.text,
+        letterSpacing: -0.5,
         marginBottom: 4,
     },
-    date: {
-        fontSize: typography.fontSize.base,
+    currentDate: {
+        fontSize: typography.fontSize.sm,
         color: colors.textMuted,
+        fontWeight: typography.fontWeight.medium,
     },
     completedButton: {
-        backgroundColor: colors.success + '20',
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        borderRadius: 20,
+        backgroundColor: colors.success + '15',
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: colors.success + '30',
     },
     completedButtonText: {
         color: colors.success,
         fontSize: typography.fontSize.sm,
-        fontWeight: typography.fontWeight.semibold,
+        fontWeight: typography.fontWeight.bold,
     },
-    taskCount: {
-        paddingHorizontal: 24,
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
         marginBottom: 16,
     },
-    taskCountText: {
+    sectionTitle: {
+        fontSize: typography.fontSize.lg,
+        fontWeight: typography.fontWeight.bold,
+        color: colors.text,
+    },
+    sectionCount: {
         fontSize: typography.fontSize.sm,
+        fontWeight: typography.fontWeight.semibold,
         color: colors.textMuted,
+        backgroundColor: colors.surface,
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 10,
     },
     listContent: {
-        paddingHorizontal: 24,
+        paddingHorizontal: 20,
         paddingBottom: 100,
     },
 });

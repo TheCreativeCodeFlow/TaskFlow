@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     checkLine1: {
         position: 'absolute',
         height: 2,
-        backgroundColor: colors.background,
+        backgroundColor: colors.text,
         borderRadius: 1,
         left: '18%',
         top: '50%',
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     checkLine2: {
         position: 'absolute',
         height: 2,
-        backgroundColor: colors.background,
+        backgroundColor: colors.text,
         borderRadius: 1,
         left: '28%',
         top: '42%',

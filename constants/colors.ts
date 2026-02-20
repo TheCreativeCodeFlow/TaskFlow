@@ -1,43 +1,44 @@
-// TaskFlow Color Palette - Dark, tech-inspired theme
+// TaskFlow Color Palette - Modern developer-centric dark theme
 
 export const colors = {
     // Background colors
-    background: '#0D1117',      // Deep navy - main background
-    surface: '#161B22',         // Elevated surface
-    surfaceLight: '#21262D',    // Card backgrounds
-    surfaceHighlight: '#30363D', // Hover/active states
+    background: '#0B1120',      // Deep navy background
+    surface: '#111827',         // Primary surface
+    surfaceLight: '#1F2937',    // Card backgrounds
+    surfaceHighlight: '#374151', // Hover/active states
 
     // Primary accent
-    primary: '#58A6FF',         // Sky blue for actions and highlights
-    primaryDark: '#388BFD',     // Pressed state
-    primaryLight: '#79C0FF',    // Light variant
+    primary: '#3B82F6',         // Modern blue for actions
+    primaryDark: '#2563EB',     // Pressed state
+    primaryLight: '#60A5FA',    // Light variant
 
     // Semantic colors
-    success: '#3FB950',         // Green for completed tasks
-    successLight: '#56D364',
-    error: '#F85149',           // Red for delete actions
-    errorDark: '#DA3633',
-    warning: '#D29922',         // Amber for warnings
+    success: '#10B981',         // Success green
+    successLight: '#34D399',
+    error: '#EF4444',           // Danger red
+    errorDark: '#DC2626',
+    warning: '#F59E0B',         // Warning amber
+    info: '#06B6D4',            // Info cyan
 
     // Text colors
-    text: '#E6EDF3',            // Primary text
-    textSecondary: '#B1BAC4',   // Secondary text
-    textMuted: '#8B949E',       // Muted/placeholder text
-    textInverse: '#0D1117',     // Text on light backgrounds
+    text: '#F9FAFB',            // Primary text
+    textSecondary: '#D1D5DB',   // Secondary text
+    textMuted: '#9CA3AF',       // Muted/placeholder text
+    textInverse: '#111827',     // Text on light backgrounds
 
     // Border colors
-    border: '#30363D',          // Subtle borders
-    borderLight: '#21262D',     // Very subtle borders
+    border: '#1F2937',          // Subtle borders
+    borderLight: '#374151',     // Light borders
 
     // Overlay
-    overlay: 'rgba(0, 0, 0, 0.6)', // Modal overlay
+    overlay: 'rgba(11, 17, 32, 0.85)', // Modal overlay
 } as const;
 
-// Category colors
+// Category colors with modern palette
 export const categoryColors: Record<string, string> = {
-    work: '#58A6FF',      // Blue
-    personal: '#A371F7',  // Purple
-    study: '#3FB950',     // Green
-    project: '#F0883E',   // Orange
-    other: '#8B949E',     // Gray
+    work: '#3B82F6',      // Blue
+    personal: '#A855F7',  // Purple
+    study: '#10B981',     // Green
+    project: '#F59E0B',   // Orange
+    other: '#6B7280',     // Gray
 };

@@ -1,4 +1,4 @@
-// Add Task Modal - Bottom Sheet Component
+// Add/Edit Task Modal - Bottom Sheet Component
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -24,13 +24,15 @@ import * as Haptics from 'expo-haptics';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { colors } from '../constants/colors';
 import { typography } from '../constants/typography';
-import { TaskCategory } from '../types/task';
+import { Task, TaskCategory } from '../types/task';
 import CategoryChip from './CategoryChip';
+import { useTasks } from '../context/TaskContext';
 
 interface AddTaskModalProps {
     visible: boolean;
     onClose: () => void;
     onSave: (title: string, description?: string, category?: TaskCategory, deadline?: number) => void;
+    editingTask?: Task | null;
 }
 
 const categories: TaskCategory[] = ['work', 'personal', 'study', 'project', 'other'];
@@ -39,12 +41,28 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
     visible,
     onClose,
     onSave,
+    editingTask,
 }) => {
+    const { updateTask } = useTasks();
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<TaskCategory>('other');
     const [deadline, setDeadline] = useState<Date | undefined>(undefined);
     const [showDatePicker, setShowDatePicker] = useState(false);
+
+    const isEditMode = !!editingTask;
+
+    // Pre-fill form when editing
+    useEffect(() => {
+        if (editingTask) {
+            setTitle(editingTask.title);
+            setDescription(editingTask.description || '');
+            setSelectedCategory(editingTask.category);
+            setDeadline(editingTask.deadline ? new Date(editingTask.deadline) : undefined);
+        } else {
+            resetForm();
+        }
+    }, [editingTask, visible]);
 
     const translateY = useSharedValue(500);
     const overlayOpacity = useSharedValue(0);
@@ -73,15 +91,28 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
         onClose();
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (title.trim()) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            onSave(
-                title, 
-                description || undefined, 
-                selectedCategory,
-                deadline ? deadline.getTime() : undefined
-            );
+            
+            if (isEditMode && editingTask) {
+                // Update existing task
+                await updateTask(editingTask.id, {
+                    title: title.trim(),
+                    description: description?.trim(),
+                    category: selectedCategory,
+                    deadline: deadline ? deadline.getTime() : undefined,
+                });
+            } else {
+                // Create new task
+                onSave(
+                    title, 
+                    description || undefined, 
+                    selectedCategory,
+                    deadline ? deadline.getTime() : undefined
+                );
+            }
+            
             resetForm();
             onClose();
         } else {
@@ -251,7 +282,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                                     !title.trim() && styles.saveButtonTextDisabled,
                                 ]}
                             >
-                                Save Task
+                                {isEditMode ? 'Update Task' : 'Save Task'}
                             </Text>
                         </Pressable>
                     </Animated.View>
@@ -292,6 +323,13 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
         paddingBottom: 40,
         maxHeight: '85%',
+        borderWidth: 1,
+        borderColor: colors.border,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 16,
+        elevation: 12,
     },
     handleBar: {
         width: 40,
@@ -307,6 +345,7 @@ const styles = StyleSheet.create({
         fontWeight: typography.fontWeight.bold,
         color: colors.text,
         marginBottom: 24,
+        letterSpacing: -0.5,
     },
     inputContainer: {
         marginBottom: 20,

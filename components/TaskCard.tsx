@@ -1,8 +1,7 @@
-// Premium Task Card Component
-// Using React Native Animated API for reliable micro-interactions
+// Modern Task Card Component with Premium Interactions
 
 import React, { useRef, useEffect } from 'react';
-import { StyleSheet, Text, View, Dimensions, Animated, Easing } from 'react-native';
+import { StyleSheet, Text, View, Dimensions, Animated, Easing, Pressable } from 'react-native';
 import {
     Gesture,
     GestureDetector,
@@ -16,85 +15,94 @@ import { formatDeadline, isDeadlineSoon, isDeadlineOverdue } from '../utils/noti
 import Checkbox from './Checkbox';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
+const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
 
 interface TaskCardProps {
     task: Task;
     onToggle: () => void;
     onDelete: () => void;
+    onEdit: () => void;
 }
 
-export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete }) => {
-    // Animation values using React Native Animated
+export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete, onEdit }) => {
+    // Animation values
     const translateX = useRef(new Animated.Value(0)).current;
-    const cardHeight = useRef(new Animated.Value(72)).current;
+    const cardHeight = useRef(new Animated.Value(80)).current;
     const cardOpacity = useRef(new Animated.Value(1)).current;
+    const cardScale = useRef(new Animated.Value(1)).current;
 
-    // Premium completion animations
+    // Completion animations
     const textOpacity = useRef(new Animated.Value(task.status === 'completed' ? 0.5 : 1)).current;
-    const cardShift = useRef(new Animated.Value(0)).current;
-    const accentOpacity = useRef(new Animated.Value(0)).current;
+    const successGlow = useRef(new Animated.Value(0)).current;
     const strikeWidth = useRef(new Animated.Value(task.status === 'completed' ? 1 : 0)).current;
 
     const isCompleted = task.status === 'completed';
     const categoryColor = categoryColors[task.category] || colors.textMuted;
 
-    // Track previous completion state for animation triggers
+    // Get status accent color
+    const getStatusColor = () => {
+        if (task.deadline) {
+            if (isDeadlineOverdue(task.deadline)) return colors.error;
+            if (isDeadlineSoon(task.deadline)) return colors.warning;
+        }
+        return colors.primary;
+    };
+
+    // Track previous completion state
     const prevCompletedRef = useRef(isCompleted);
 
     useEffect(() => {
-        // Only animate if state actually changed
         if (prevCompletedRef.current !== isCompleted) {
             prevCompletedRef.current = isCompleted;
 
             if (isCompleted) {
-                // Card shift animation - move right and settle back
+                // Completion animation sequence
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+                // Scale animation
                 Animated.sequence([
-                    Animated.timing(cardShift, {
-                        toValue: 8,
-                        duration: 150,
-                        easing: Easing.out(Easing.ease),
+                    Animated.timing(cardScale, {
+                        toValue: 0.98,
+                        duration: 100,
                         useNativeDriver: true,
                     }),
-                    Animated.timing(cardShift, {
-                        toValue: 0,
-                        duration: 200,
+                    Animated.timing(cardScale, {
+                        toValue: 1,
+                        duration: 150,
                         easing: Easing.out(Easing.ease),
                         useNativeDriver: true,
                     }),
                 ]).start();
 
-                // Text fade animation
+                // Success glow
+                Animated.sequence([
+                    Animated.timing(successGlow, {
+                        toValue: 1,
+                        duration: 200,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(successGlow, {
+                        toValue: 0,
+                        duration: 300,
+                        useNativeDriver: true,
+                    }),
+                ]).start();
+
+                // Text fade
                 Animated.timing(textOpacity, {
                     toValue: 0.5,
                     duration: 200,
-                    delay: 100,
                     useNativeDriver: true,
                 }).start();
 
-                // Strike-through animation
+                // Strike-through
                 Animated.timing(strikeWidth, {
                     toValue: 1,
-                    duration: 200,
-                    delay: 150,
+                    duration: 250,
+                    delay: 100,
                     easing: Easing.out(Easing.ease),
                     useNativeDriver: true,
                 }).start();
-
-                // Green accent flash
-                Animated.sequence([
-                    Animated.timing(accentOpacity, {
-                        toValue: 1,
-                        duration: 150,
-                        useNativeDriver: true,
-                    }),
-                    Animated.delay(150),
-                    Animated.timing(accentOpacity, {
-                        toValue: 0,
-                        duration: 200,
-                        useNativeDriver: true,
-                    }),
-                ]).start();
             } else {
                 // Reset animations
                 Animated.parallel([
@@ -108,46 +116,27 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete }) 
                         duration: 100,
                         useNativeDriver: true,
                     }),
-                    Animated.timing(cardShift, {
-                        toValue: 0,
-                        duration: 150,
-                        useNativeDriver: true,
-                    }),
                 ]).start();
             }
         }
-    }, [isCompleted, cardShift, textOpacity, strikeWidth, accentOpacity]);
-
-    const triggerHaptic = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    };
+    }, [isCompleted]);
 
     const handleDelete = () => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         Animated.parallel([
             Animated.timing(cardHeight, {
                 toValue: 0,
-                duration: 200,
+                duration: 250,
                 useNativeDriver: false,
             }),
             Animated.timing(cardOpacity, {
                 toValue: 0,
-                duration: 200,
+                duration: 250,
                 useNativeDriver: true,
             }),
         ]).start(() => {
             onDelete();
         });
-    };
-
-    const handleSwipeComplete = () => {
-        triggerHaptic();
-        onToggle();
-        Animated.timing(translateX, {
-            toValue: 0,
-            duration: 200,
-            easing: Easing.out(Easing.ease),
-            useNativeDriver: true,
-        }).start();
     };
 
     const panGesture = Gesture.Pan()
@@ -157,17 +146,16 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete }) 
         })
         .onEnd((event) => {
             if (event.translationX < -SWIPE_THRESHOLD) {
+                // Swipe left to delete
                 Animated.timing(translateX, {
                     toValue: -SCREEN_WIDTH,
                     duration: 200,
                     useNativeDriver: true,
                 }).start(() => {
-                    triggerHaptic();
                     handleDelete();
                 });
-            } else if (event.translationX > SWIPE_THRESHOLD && !isCompleted) {
-                handleSwipeComplete();
             } else {
+                // Return to center
                 Animated.spring(translateX, {
                     toValue: 0,
                     useNativeDriver: true,
@@ -177,25 +165,18 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete }) 
             }
         });
 
-    // Calculate margin based on opacity for delete animation
-    const marginBottom = cardOpacity.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, 12],
-    });
-
-    // Delete background opacity based on swipe
+    // Delete background opacity
     const deleteOpacity = translateX.interpolate({
         inputRange: [-SCREEN_WIDTH * 0.5, -50, 0],
         outputRange: [1, 0.8, 0],
         extrapolate: 'clamp',
     });
 
-    // Complete background opacity based on swipe
-    const completeOpacity = translateX.interpolate({
-        inputRange: [0, 50, SCREEN_WIDTH * 0.5],
-        outputRange: [0, 0.8, 1],
-        extrapolate: 'clamp',
-    });
+    // Success glow style
+    const glowStyle = {
+        opacity: successGlow,
+        backgroundColor: colors.success + '20',
+    };
 
     return (
         <Animated.View
@@ -204,100 +185,90 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete }) 
                 {
                     height: cardHeight,
                     opacity: cardOpacity,
-                    marginBottom,
+                    transform: [{ scale: cardScale }],
                 }
             ]}
         >
             {/* Delete background */}
             <Animated.View
                 style={[
-                    styles.actionBackground,
                     styles.deleteBackground,
                     { opacity: deleteOpacity }
                 ]}
             >
-                <Text style={styles.actionText}>Delete</Text>
-            </Animated.View>
-
-            {/* Complete background */}
-            <Animated.View
-                style={[
-                    styles.actionBackground,
-                    styles.completeBackground,
-                    { opacity: completeOpacity }
-                ]}
-            >
-                <Text style={styles.actionText}>Complete</Text>
+                <Text style={styles.deleteText}>Delete</Text>
             </Animated.View>
 
             {/* Main card */}
             <GestureDetector gesture={panGesture}>
-                <Animated.View
-                    style={[
-                        styles.card,
-                        {
-                            transform: [
-                                { translateX: Animated.add(translateX, cardShift) }
-                            ]
-                        }
-                    ]}
-                >
-                    {/* Success accent line */}
+                <Pressable onPress={onEdit} onLongPress={onEdit}>
                     <Animated.View
                         style={[
-                            styles.accentLine,
-                            { opacity: accentOpacity }
+                            styles.card,
+                            { transform: [{ translateX }] }
                         ]}
-                    />
+                    >
+                        {/* Status accent bar */}
+                        <View style={[styles.accentBar, { backgroundColor: getStatusColor() }]} />
 
-                    <Checkbox checked={isCompleted} onToggle={onToggle} />
+                        {/* Success glow overlay */}
+                        <Animated.View style={[styles.glowOverlay, glowStyle]} />
 
-                    <View style={styles.content}>
-                        <View style={styles.titleContainer}>
-                            <Animated.Text
-                                style={[
-                                    styles.title,
-                                    { opacity: textOpacity },
-                                ]}
-                                numberOfLines={1}
-                            >
-                                {task.title}
-                            </Animated.Text>
+                        {/* Content */}
+                        <View style={styles.cardContent}>
+                            <Checkbox checked={isCompleted} onToggle={onToggle} />
 
-                            {/* Strike-through line */}
-                            <Animated.View
-                                style={[
-                                    styles.strikeLine,
-                                    {
-                                        transform: [{ scaleX: strikeWidth }],
-                                        opacity: strikeWidth,
-                                    }
-                                ]}
-                            />
+                            <View style={styles.textContainer}>
+                                <View style={styles.titleRow}>
+                                    <Animated.Text
+                                        style={[
+                                            styles.title,
+                                            { opacity: textOpacity },
+                                        ]}
+                                        numberOfLines={1}
+                                    >
+                                        {task.title}
+                                    </Animated.Text>
 
-                            {/* Deadline display */}
-                            {task.deadline && (
-                                <Text
-                                    style={[
-                                        styles.deadlineText,
-                                        isDeadlineOverdue(task.deadline) && styles.deadlineOverdue,
-                                        isDeadlineSoon(task.deadline) && !isDeadlineOverdue(task.deadline) && styles.deadlineSoon,
-                                    ]}
-                                >
-                                    Due: {formatDeadline(task.deadline)}
-                                </Text>
-                            )}
-                        </View>
+                                    {/* Strike-through line */}
+                                    <Animated.View
+                                        style={[
+                                            styles.strikeLine,
+                                            {
+                                                transform: [{ scaleX: strikeWidth }],
+                                                opacity: strikeWidth,
+                                            }
+                                        ]}
+                                    />
+                                </View>
 
-                        {task.category && (
-                            <View style={[styles.categoryBadge, { backgroundColor: `${categoryColor}20` }]}>
-                                <Text style={[styles.categoryText, { color: categoryColor }]}>
-                                    {getCategoryLabel(task.category)}
-                                </Text>
+                                {/* Deadline and category row */}
+                                <View style={styles.metaRow}>
+                                    {task.deadline && (
+                                        <Text
+                                            style={[
+                                                styles.deadline,
+                                                isDeadlineOverdue(task.deadline) && styles.deadlineOverdue,
+                                                isDeadlineSoon(task.deadline) && !isDeadlineOverdue(task.deadline) && styles.deadlineSoon,
+                                            ]}
+                                        >
+                                            {isDeadlineOverdue(task.deadline) ? '⚠️ ' : '📅 '}
+                                            {formatDeadline(task.deadline)}
+                                        </Text>
+                                    )}
+
+                                    {task.category && (
+                                        <View style={[styles.categoryChip, { backgroundColor: categoryColor + '15', borderColor: categoryColor + '30' }]}>
+                                            <Text style={[styles.categoryText, { color: categoryColor }]}>
+                                                {getCategoryLabel(task.category)}
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
                             </View>
-                        )}
-                    </View>
-                </Animated.View>
+                        </View>
+                    </Animated.View>
+                </Pressable>
             </GestureDetector>
         </Animated.View>
     );
@@ -305,98 +276,108 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete }) 
 
 const styles = StyleSheet.create({
     container: {
-        position: 'relative',
+        marginBottom: 12,
         overflow: 'hidden',
     },
-    actionBackground: {
+    deleteBackground: {
         position: 'absolute',
         top: 0,
-        bottom: 12,
-        left: 0,
+        bottom: 0,
         right: 0,
+        width: 120,
+        backgroundColor: colors.error,
         borderRadius: 16,
         justifyContent: 'center',
-        paddingHorizontal: 24,
+        alignItems: 'center',
     },
-    deleteBackground: {
-        backgroundColor: colors.error,
-        alignItems: 'flex-end',
-    },
-    completeBackground: {
-        backgroundColor: colors.success,
-        alignItems: 'flex-start',
-    },
-    actionText: {
+    deleteText: {
         color: colors.text,
-        fontSize: typography.fontSize.base,
-        fontWeight: typography.fontWeight.semibold,
+        fontSize: typography.fontSize.sm,
+        fontWeight: typography.fontWeight.bold,
     },
     card: {
         backgroundColor: colors.surfaceLight,
         borderRadius: 16,
-        paddingHorizontal: 16,
-        paddingVertical: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
         borderWidth: 1,
         borderColor: colors.border,
         overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 3,
     },
-    accentLine: {
+    accentBar: {
         position: 'absolute',
         left: 0,
         top: 0,
         bottom: 0,
-        width: 3,
-        backgroundColor: colors.success,
-        borderTopLeftRadius: 16,
-        borderBottomLeftRadius: 16,
+        width: 4,
     },
-    content: {
-        flex: 1,
-        marginLeft: 14,
+    glowOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        pointerEvents: 'none',
+    },
+    cardContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        paddingVertical: 16,
+        paddingHorizontal: 16,
+        paddingLeft: 20,
     },
-    titleContainer: {
+    textContainer: {
         flex: 1,
+        marginLeft: 14,
+    },
+    titleRow: {
         position: 'relative',
-        justifyContent: 'center',
+        marginBottom: 6,
     },
     title: {
         fontSize: typography.fontSize.base,
-        fontWeight: typography.fontWeight.medium,
+        fontWeight: typography.fontWeight.semibold,
         color: colors.text,
+        letterSpacing: -0.2,
     },
     strikeLine: {
         position: 'absolute',
         left: 0,
         right: 0,
+        top: '50%',
         height: 1.5,
         backgroundColor: colors.textMuted,
     },
-    deadlineText: {
+    metaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    deadline: {
         fontSize: typography.fontSize.xs,
         color: colors.textMuted,
-        marginTop: 4,
         fontWeight: typography.fontWeight.medium,
     },
     deadlineSoon: {
-        color: '#FFA500',
+        color: colors.warning,
     },
     deadlineOverdue: {
         color: colors.error,
     },
-    categoryBadge: {
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 12,
-        marginLeft: 12,
+    categoryChip: {
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 8,
+        borderWidth: 1,
     },
     categoryText: {
         fontSize: typography.fontSize.xs,
-        fontWeight: typography.fontWeight.medium,
+        fontWeight: typography.fontWeight.semibold,
+        textTransform: 'uppercase',
+        letterSpacing: 0.3,
     },
 });
 

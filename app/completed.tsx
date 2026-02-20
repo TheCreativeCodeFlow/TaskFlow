@@ -40,6 +40,7 @@ export default function CompletedScreen() {
             task={item}
             onToggle={() => toggleTask(item.id)}
             onDelete={() => deleteTask(item.id)}
+            onEdit={() => {}} // Completed tasks can't be edited
         />
     );
 
@@ -99,24 +100,29 @@ const styles = StyleSheet.create({
         backgroundColor: colors.background,
     },
     statsContainer: {
-        paddingHorizontal: 24,
+        paddingHorizontal: 20,
         paddingVertical: 16,
-        backgroundColor: colors.success + '10',
-        marginHorizontal: 24,
+        backgroundColor: colors.success + '15',
+        marginHorizontal: 20,
         marginTop: 16,
         marginBottom: 24,
-        borderRadius: 12,
+        borderRadius: 16,
         borderWidth: 1,
         borderColor: colors.success + '30',
+        shadowColor: colors.success,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 2,
     },
     statsText: {
         fontSize: typography.fontSize.base,
         color: colors.success,
         textAlign: 'center',
-        fontWeight: typography.fontWeight.medium,
+        fontWeight: typography.fontWeight.semibold,
     },
     listContent: {
-        paddingHorizontal: 24,
+        paddingHorizontal: 20,
         paddingBottom: 24,
     },
     emptyContainer: {
@@ -148,11 +154,16 @@ const styles = StyleSheet.create({
     },
     clearButton: {
         backgroundColor: colors.error + '15',
-        paddingVertical: 14,
-        borderRadius: 12,
+        paddingVertical: 16,
+        borderRadius: 14,
         alignItems: 'center',
         borderWidth: 1,
         borderColor: colors.error + '30',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
     },
     clearButtonText: {
         color: colors.error,
