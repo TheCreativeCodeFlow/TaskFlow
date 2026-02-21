@@ -50,39 +50,58 @@ export const requestNotificationPermissions = async (): Promise<boolean> => {
   }
 };
 
+const ONE_MINUTE = 1000 * 60;
+const ONE_DAY = 1000 * 60 * 60 * 24;
+
+const atStartOfDay = (timestamp: number) => {
+  const d = new Date(timestamp);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
+const isFuture = (date: Date) => date.getTime() - Date.now() > ONE_MINUTE;
+
 /**
- * Calculate notification dates
- * Returns dates for every 2 days before deadline + final day
+ * Build a schedule of absolute dates for notifications.
+ * - Regular reminders: every 2 days before the deadline (10:00 AM)
+ * - Final day warning: exact deadline day (9:00 AM) with high priority
+ * - Only schedule future times; never schedule immediate/past triggers.
  */
-const calculateNotificationDates = (deadlineTimestamp: number): Date[] => {
-  const deadlineDate = new Date(deadlineTimestamp);
+const buildNotificationSchedule = (deadlineTimestamp: number): Array<{ date: Date; isFinalDay: boolean; daysUntilDeadline: number }> => {
   const now = new Date();
-  const notificationDates: Date[] = [];
+  const deadlineDayStart = atStartOfDay(deadlineTimestamp);
+  const daysUntilDeadline = Math.ceil((deadlineDayStart.getTime() - atStartOfDay(now.getTime()).getTime()) / ONE_DAY);
 
-  // Start with the deadline day (final reminder)
-  const deadlineDay = new Date(deadlineDate);
-  deadlineDay.setHours(9, 0, 0, 0); // 9 AM on deadline day
-  
-  if (deadlineDay > now) {
-    notificationDates.push(deadlineDay);
+  if (daysUntilDeadline < 0) {
+    return [];
   }
 
-  // Calculate dates going backward (every 2 days)
-  let daysBack = 2;
-  while (true) {
-    const reminderDate = new Date(deadlineDate);
-    reminderDate.setDate(reminderDate.getDate() - daysBack);
-    reminderDate.setHours(10, 0, 0, 0); // 10 AM for regular reminders
+  const plan: Array<{ date: Date; isFinalDay: boolean; daysUntilDeadline: number }> = [];
 
-    if (reminderDate <= now) {
-      break; // Stop if we've reached the past
+  // Final-day warning at 9:00 AM
+  const finalDay = new Date(deadlineDayStart);
+  finalDay.setHours(9, 0, 0, 0);
+  if (isFuture(finalDay)) {
+    plan.push({ date: finalDay, isFinalDay: true, daysUntilDeadline: 0 });
+  }
+
+  // Regular reminders every 2 days before, at 10:00 AM
+  for (let offset = 2; offset <= daysUntilDeadline; offset += 2) {
+    const reminderDate = new Date(deadlineDayStart);
+    reminderDate.setDate(reminderDate.getDate() - offset);
+    reminderDate.setHours(10, 0, 0, 0);
+
+    if (isFuture(reminderDate)) {
+      plan.push({
+        date: reminderDate,
+        isFinalDay: false,
+        daysUntilDeadline: offset,
+      });
     }
-
-    notificationDates.unshift(reminderDate); // Add to beginning of array
-    daysBack += 2;
   }
 
-  return notificationDates;
+  // Ensure chronological order (soonest first)
+  return plan.sort((a, b) => a.date.getTime() - b.date.getTime());
 };
 
 /**
@@ -94,36 +113,32 @@ export const scheduleTaskNotifications = async (
   deadlineTimestamp: number
 ): Promise<string[]> => {
   try {
-    const notificationDates = calculateNotificationDates(deadlineTimestamp);
+    const schedule = buildNotificationSchedule(deadlineTimestamp);
     const notificationIds: string[] = [];
 
-    for (const date of notificationDates) {
-      const isDeadlineDay = date.getHours() === 9; // Deadline day notifications are at 9 AM
-      const daysUntilDeadline = Math.ceil((deadlineTimestamp - date.getTime()) / (1000 * 60 * 60 * 24));
+    for (const item of schedule) {
+      const daysLabel = item.daysUntilDeadline > 1
+        ? `${item.daysUntilDeadline} days`
+        : item.daysUntilDeadline === 1
+          ? '1 day'
+          : 'today';
 
-      let body: string;
-      let priority: Notifications.AndroidNotificationPriority;
-
-      if (isDeadlineDay) {
-        // Final day warning
-        body = `⚠️ Last day! "${taskTitle}" is due today.`;
-        priority = Notifications.AndroidNotificationPriority.HIGH;
-      } else {
-        // Regular reminder
-        body = `⏰ Due in ${daysUntilDeadline} days: "${taskTitle}"`;
-        priority = Notifications.AndroidNotificationPriority.DEFAULT;
-      }
+      const body = item.isFinalDay
+        ? `⚠️ Last day! "${taskTitle}" is due today.`
+        : `⏰ Due in ${daysLabel}: "${taskTitle}"`;
 
       const notificationId = await Notifications.scheduleNotificationAsync({
         content: {
-          title: isDeadlineDay ? '🔴 Task Deadline Today' : '📋 Task Reminder',
+          title: item.isFinalDay ? '🔴 Task Deadline Today' : '📋 Task Reminder',
           body,
           data: { taskId },
-          priority: priority,
+          priority: item.isFinalDay
+            ? Notifications.AndroidNotificationPriority.HIGH
+            : Notifications.AndroidNotificationPriority.DEFAULT,
           sound: 'default',
         },
         trigger: {
-          date,
+          date: item.date,
           channelId: 'task-reminders',
         },
       });
@@ -175,26 +190,27 @@ export const formatDeadline = (timestamp: number): string => {
   const date = new Date(timestamp);
   const now = new Date();
   const diffTime = date.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const diffDays = Math.ceil(diffTime / ONE_DAY);
 
-  // If today
-  if (diffDays === 0) {
-    return 'Today';
-  }
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Tomorrow';
+  if (diffDays < 0) return `Overdue ${Math.abs(diffDays)}d`;
 
-  // If tomorrow
-  if (diffDays === 1) {
-    return 'Tomorrow';
-  }
-
-  // If overdue
-  if (diffDays < 0) {
-    return `Overdue ${Math.abs(diffDays)}d`;
-  }
-
-  // Otherwise show date
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   return `${date.getDate()} ${months[date.getMonth()]}`;
+};
+
+export const formatDeadlineRelative = (timestamp: number): string => {
+  const nowStart = atStartOfDay(Date.now());
+  const deadlineStart = atStartOfDay(timestamp);
+  const diffDays = Math.floor((deadlineStart.getTime() - nowStart.getTime()) / ONE_DAY);
+
+  if (diffDays === 0) return 'Due today';
+  if (diffDays === 1) return 'Due tomorrow';
+  if (diffDays > 1) return `Due in ${diffDays} days`;
+
+  const overdueDays = Math.abs(diffDays);
+  return overdueDays === 1 ? 'Overdue by 1 day' : `Overdue by ${overdueDays} days`;
 };
 
 /**

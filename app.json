@@ -42,7 +42,8 @@
           "color": "#00F5FF",
           "mode": "production"
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "router": {},

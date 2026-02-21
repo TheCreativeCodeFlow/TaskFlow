@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { StyleSheet, Pressable, Text } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
     useAnimatedStyle,
     useSharedValue,
@@ -49,7 +50,14 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ onPr
             onPressOut={handlePressOut}
             style={[styles.button, animatedStyle]}
         >
-            <Text style={styles.icon}>+</Text>
+            <LinearGradient
+                colors={[colors.primaryLight, colors.primary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.gradient}
+            >
+                <Text style={styles.icon}>+</Text>
+            </LinearGradient>
         </AnimatedPressable>
     );
 };
@@ -62,17 +70,25 @@ const styles = StyleSheet.create({
         width: 64,
         height: 64,
         borderRadius: 32,
-        backgroundColor: colors.primary,
         justifyContent: 'center',
         alignItems: 'center',
         shadowColor: colors.primary,
         shadowOffset: {
             width: 0,
-            height: 6,
+            height: 8,
         },
-        shadowOpacity: 0.5,
-        shadowRadius: 12,
-        elevation: 10,
+        shadowOpacity: 0.35,
+        shadowRadius: 16,
+        elevation: 12,
+    },
+    gradient: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 32,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: colors.primaryLight + '60',
     },
     icon: {
         fontSize: 36,

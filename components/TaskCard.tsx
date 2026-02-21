@@ -2,16 +2,13 @@
 
 import React, { useRef, useEffect } from 'react';
 import { StyleSheet, Text, View, Dimensions, Animated, Easing, Pressable } from 'react-native';
-import {
-    Gesture,
-    GestureDetector,
-} from 'react-native-gesture-handler';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import { colors, categoryColors } from '../constants/colors';
 import { typography } from '../constants/typography';
 import { Task } from '../types/task';
 import { getCategoryLabel } from '../utils/helpers';
-import { formatDeadline, isDeadlineSoon, isDeadlineOverdue } from '../utils/notifications';
+import { formatDeadlineRelative, isDeadlineSoon, isDeadlineOverdue } from '../utils/notifications';
 import Checkbox from './Checkbox';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -25,13 +22,12 @@ interface TaskCardProps {
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete, onEdit }) => {
-    // Animation values
     const translateX = useRef(new Animated.Value(0)).current;
     const cardHeight = useRef(new Animated.Value(80)).current;
     const cardOpacity = useRef(new Animated.Value(1)).current;
     const cardScale = useRef(new Animated.Value(1)).current;
+    const pressScale = useRef(new Animated.Value(1)).current;
 
-    // Completion animations
     const textOpacity = useRef(new Animated.Value(task.status === 'completed' ? 0.5 : 1)).current;
     const successGlow = useRef(new Animated.Value(0)).current;
     const strikeWidth = useRef(new Animated.Value(task.status === 'completed' ? 1 : 0)).current;
@@ -39,7 +35,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete, on
     const isCompleted = task.status === 'completed';
     const categoryColor = categoryColors[task.category] || colors.textMuted;
 
-    // Get status accent color
     const getStatusColor = () => {
         if (task.deadline) {
             if (isDeadlineOverdue(task.deadline)) return colors.error;
@@ -48,7 +43,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete, on
         return colors.primary;
     };
 
-    // Track previous completion state
     const prevCompletedRef = useRef(isCompleted);
 
     useEffect(() => {
@@ -56,10 +50,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete, on
             prevCompletedRef.current = isCompleted;
 
             if (isCompleted) {
-                // Completion animation sequence
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-                // Scale animation
                 Animated.sequence([
                     Animated.timing(cardScale, {
                         toValue: 0.98,
@@ -74,7 +66,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete, on
                     }),
                 ]).start();
 
-                // Success glow
                 Animated.sequence([
                     Animated.timing(successGlow, {
                         toValue: 1,
@@ -88,14 +79,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete, on
                     }),
                 ]).start();
 
-                // Text fade
                 Animated.timing(textOpacity, {
                     toValue: 0.5,
                     duration: 200,
                     useNativeDriver: true,
                 }).start();
 
-                // Strike-through
                 Animated.timing(strikeWidth, {
                     toValue: 1,
                     duration: 250,
@@ -104,7 +93,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete, on
                     useNativeDriver: true,
                 }).start();
             } else {
-                // Reset animations
                 Animated.parallel([
                     Animated.timing(textOpacity, {
                         toValue: 1,
@@ -119,7 +107,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete, on
                 ]).start();
             }
         }
-    }, [isCompleted]);
+    }, [isCompleted, cardScale, successGlow, strikeWidth, textOpacity]);
 
     const handleDelete = () => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -146,7 +134,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete, on
         })
         .onEnd((event) => {
             if (event.translationX < -SWIPE_THRESHOLD) {
-                // Swipe left to delete
                 Animated.timing(translateX, {
                     toValue: -SCREEN_WIDTH,
                     duration: 200,
@@ -155,7 +142,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete, on
                     handleDelete();
                 });
             } else {
-                // Return to center
                 Animated.spring(translateX, {
                     toValue: 0,
                     useNativeDriver: true,
@@ -165,18 +151,18 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete, on
             }
         });
 
-    // Delete background opacity
     const deleteOpacity = translateX.interpolate({
         inputRange: [-SCREEN_WIDTH * 0.5, -50, 0],
         outputRange: [1, 0.8, 0],
         extrapolate: 'clamp',
     });
 
-    // Success glow style
     const glowStyle = {
         opacity: successGlow,
         backgroundColor: colors.success + '20',
     };
+
+    const combinedScale = Animated.multiply(cardScale, pressScale);
 
     return (
         <Animated.View
@@ -185,11 +171,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete, on
                 {
                     height: cardHeight,
                     opacity: cardOpacity,
-                    transform: [{ scale: cardScale }],
+                    transform: [{ scale: combinedScale }],
                 }
             ]}
         >
-            {/* Delete background */}
             <Animated.View
                 style={[
                     styles.deleteBackground,
@@ -199,22 +184,37 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete, on
                 <Text style={styles.deleteText}>Delete</Text>
             </Animated.View>
 
-            {/* Main card */}
             <GestureDetector gesture={panGesture}>
-                <Pressable onPress={onEdit} onLongPress={onEdit}>
+                <Pressable
+                    onPress={onEdit}
+                    onLongPress={onEdit}
+                    onPressIn={() => {
+                        Animated.spring(pressScale, {
+                            toValue: 0.98,
+                            useNativeDriver: true,
+                            speed: 20,
+                            bounciness: 0,
+                        }).start();
+                    }}
+                    onPressOut={() => {
+                        Animated.spring(pressScale, {
+                            toValue: 1,
+                            useNativeDriver: true,
+                            speed: 20,
+                            bounciness: 6,
+                        }).start();
+                    }}
+                >
                     <Animated.View
                         style={[
                             styles.card,
                             { transform: [{ translateX }] }
                         ]}
                     >
-                        {/* Status accent bar */}
                         <View style={[styles.accentBar, { backgroundColor: getStatusColor() }]} />
 
-                        {/* Success glow overlay */}
                         <Animated.View style={[styles.glowOverlay, glowStyle]} />
 
-                        {/* Content */}
                         <View style={styles.cardContent}>
                             <Checkbox checked={isCompleted} onToggle={onToggle} />
 
@@ -230,7 +230,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete, on
                                         {task.title}
                                     </Animated.Text>
 
-                                    {/* Strike-through line */}
                                     <Animated.View
                                         style={[
                                             styles.strikeLine,
@@ -242,7 +241,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete, on
                                     />
                                 </View>
 
-                                {/* Deadline and category row */}
                                 <View style={styles.metaRow}>
                                     {task.deadline && (
                                         <Text
@@ -251,14 +249,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onToggle, onDelete, on
                                                 isDeadlineOverdue(task.deadline) && styles.deadlineOverdue,
                                                 isDeadlineSoon(task.deadline) && !isDeadlineOverdue(task.deadline) && styles.deadlineSoon,
                                             ]}
+                                            numberOfLines={1}
                                         >
-                                            {isDeadlineOverdue(task.deadline) ? '⚠️ ' : '📅 '}
-                                            {formatDeadline(task.deadline)}
+                                            {formatDeadlineRelative(task.deadline)}
                                         </Text>
                                     )}
 
                                     {task.category && (
-                                        <View style={[styles.categoryChip, { backgroundColor: categoryColor + '15', borderColor: categoryColor + '30' }]}>
+                                        <View style={[styles.categoryChip, { backgroundColor: categoryColor + '12', borderColor: categoryColor + '35' }] }>
                                             <Text style={[styles.categoryText, { color: categoryColor }]}>
                                                 {getCategoryLabel(task.category)}
                                             </Text>
@@ -304,8 +302,8 @@ const styles = StyleSheet.create({
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 3,
+        shadowRadius: 10,
+        elevation: 4,
     },
     accentBar: {
         position: 'absolute',
@@ -354,12 +352,13 @@ const styles = StyleSheet.create({
     metaRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: 10,
+        justifyContent: 'space-between',
     },
     deadline: {
         fontSize: typography.fontSize.xs,
         color: colors.textMuted,
-        fontWeight: typography.fontWeight.medium,
+        fontWeight: typography.fontWeight.semibold,
     },
     deadlineSoon: {
         color: colors.warning,

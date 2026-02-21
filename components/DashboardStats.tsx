@@ -1,7 +1,7 @@
 // Dashboard Stats Component - Task overview metrics
 
 import React, { useMemo } from 'react';
-import { StyleSheet, View, Text } from 'react-native';
+import { StyleSheet, View, Text, Pressable } from 'react-native';
 import { colors } from '../constants/colors';
 import { typography } from '../constants/typography';
 import { Task } from '../types/task';
@@ -9,22 +9,11 @@ import { isDeadlineSoon, isDeadlineOverdue } from '../utils/notifications';
 
 interface DashboardStatsProps {
     tasks: Task[];
+    activeFilter?: 'all' | 'dueSoon' | 'overdue';
+    onFilterChange?: (filter: 'all' | 'dueSoon' | 'overdue') => void;
 }
 
-interface StatItemProps {
-    label: string;
-    value: number;
-    color: string;
-}
-
-const StatItem: React.FC<StatItemProps> = ({ label, value, color }) => (
-    <View style={styles.statItem}>
-        <Text style={[styles.statValue, { color }]}>{value}</Text>
-        <Text style={styles.statLabel}>{label}</Text>
-    </View>
-);
-
-export const DashboardStats: React.FC<DashboardStatsProps> = ({ tasks }) => {
+export const DashboardStats: React.FC<DashboardStatsProps> = ({ tasks, activeFilter = 'all', onFilterChange }) => {
     const stats = useMemo(() => {
         const pending = tasks.filter(t => t.status === 'pending');
         const completed = tasks.filter(t => t.status === 'completed');
@@ -45,31 +34,40 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({ tasks }) => {
         };
     }, [tasks]);
 
+    const handlePress = (filter: 'all' | 'dueSoon' | 'overdue') => {
+        if (!onFilterChange) return;
+        onFilterChange(activeFilter === filter ? 'all' : filter);
+    };
+
+    const renderStat = (
+        label: string,
+        value: number,
+        color: string,
+        filter: 'all' | 'dueSoon' | 'overdue',
+        tappable: boolean,
+    ) => {
+        const isActive = activeFilter === filter && tappable;
+        return (
+            <Pressable
+                style={[styles.statItem, isActive && styles.statItemActive]}
+                disabled={!tappable}
+                onPress={() => handlePress(filter)}
+            >
+                <Text style={[styles.statValue, { color }]}>{value}</Text>
+                <Text style={[styles.statLabel, isActive && styles.statLabelActive]}>{label}</Text>
+            </Pressable>
+        );
+    };
+
     return (
         <View style={styles.container}>
-            <StatItem 
-                label="Total" 
-                value={stats.total} 
-                color={colors.textSecondary} 
-            />
+            {renderStat('Total', stats.total, colors.textSecondary, 'all', true)}
             <View style={styles.divider} />
-            <StatItem 
-                label="Done" 
-                value={stats.completed} 
-                color={colors.success} 
-            />
+            {renderStat('Done', stats.completed, colors.success, 'all', false)}
             <View style={styles.divider} />
-            <StatItem 
-                label="Due Soon" 
-                value={stats.dueSoon} 
-                color={colors.warning} 
-            />
+            {renderStat('Due Soon', stats.dueSoon, colors.warning, 'dueSoon', true)}
             <View style={styles.divider} />
-            <StatItem 
-                label="Overdue" 
-                value={stats.overdue} 
-                color={colors.error} 
-            />
+            {renderStat('Overdue', stats.overdue, colors.error, 'overdue', true)}
         </View>
     );
 };
@@ -85,14 +83,21 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-        elevation: 6,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.14,
+        shadowRadius: 14,
+        elevation: 8,
+        borderWidth: 1,
+        borderColor: colors.border,
     },
     statItem: {
         flex: 1,
         alignItems: 'center',
+        paddingVertical: 6,
+    },
+    statItemActive: {
+        backgroundColor: colors.surfaceLight,
+        borderRadius: 10,
     },
     statValue: {
         fontSize: typography.fontSize['2xl'],
@@ -105,6 +110,9 @@ const styles = StyleSheet.create({
         color: colors.textMuted,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
+    },
+    statLabelActive: {
+        color: colors.text,
     },
     divider: {
         width: 1,

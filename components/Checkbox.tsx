@@ -2,19 +2,21 @@
 // Using React Native Animated API for reliable animations
 
 import React, { useRef, useEffect } from 'react';
-import { StyleSheet, Pressable, View, Animated, Easing } from 'react-native';
+import { StyleSheet, Pressable, View, Animated, Easing, GestureResponderEvent } from 'react-native';
 import { colors } from '../constants/colors';
 
 interface CheckboxProps {
     checked: boolean;
     onToggle: () => void;
     size?: number;
+    stopPropagation?: boolean;
 }
 
 export const Checkbox: React.FC<CheckboxProps> = ({
     checked,
     onToggle,
-    size = 24
+    size = 24,
+    stopPropagation = true,
 }) => {
     const scaleAnim = useRef(new Animated.Value(1)).current;
     const progressAnim = useRef(new Animated.Value(checked ? 1 : 0)).current;
@@ -59,7 +61,14 @@ export const Checkbox: React.FC<CheckboxProps> = ({
         }
     }, [checked, progressAnim, checkOpacity]);
 
-    const handlePressIn = () => {
+    const maybeStop = (event: GestureResponderEvent) => {
+        if (stopPropagation) {
+            event.stopPropagation();
+        }
+    };
+
+    const handlePressIn = (event: GestureResponderEvent) => {
+        maybeStop(event);
         Animated.timing(scaleAnim, {
             toValue: 0.85,
             duration: 80,
@@ -67,7 +76,8 @@ export const Checkbox: React.FC<CheckboxProps> = ({
         }).start();
     };
 
-    const handlePressOut = () => {
+    const handlePressOut = (event: GestureResponderEvent) => {
+        maybeStop(event);
         Animated.sequence([
             Animated.timing(scaleAnim, {
                 toValue: 1.08,
@@ -84,17 +94,22 @@ export const Checkbox: React.FC<CheckboxProps> = ({
 
     const backgroundColor = progressAnim.interpolate({
         inputRange: [0, 1],
-        outputRange: ['transparent', colors.success],
+        outputRange: [colors.surfaceHighlight, colors.success],
     });
 
     const borderColor = progressAnim.interpolate({
         inputRange: [0, 1],
-        outputRange: [colors.border, colors.success],
+        outputRange: [colors.textMuted, colors.success],
     });
+
+    const handlePress = (event: GestureResponderEvent) => {
+        maybeStop(event);
+        onToggle();
+    };
 
     return (
         <Pressable
-            onPress={onToggle}
+            onPress={handlePress}
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
         >

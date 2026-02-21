@@ -1,6 +1,6 @@
 // Home Screen - Modern Task Dashboard
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     StyleSheet,
     View,
@@ -14,6 +14,7 @@ import { useTasks } from '../context/TaskContext';
 import { colors } from '../constants/colors';
 import { typography } from '../constants/typography';
 import { formatDate } from '../utils/helpers';
+import { isDeadlineOverdue, isDeadlineSoon } from '../utils/notifications';
 import TaskCard from '../components/TaskCard';
 import FloatingActionButton from '../components/FloatingActionButton';
 import AddTaskModal from '../components/AddTaskModal';
@@ -25,6 +26,7 @@ export default function HomeScreen() {
     const { tasks, pendingTasks, completedTasks, addTask, deleteTask, toggleTask } = useTasks();
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [editingTask, setEditingTask] = useState<any>(null);
+    const [activeFilter, setActiveFilter] = useState<'all' | 'dueSoon' | 'overdue'>('all');
 
     const handleAddTask = (title: string, description?: string, category?: any, deadline?: number) => {
         addTask(title, description, category, deadline);
@@ -39,6 +41,16 @@ export default function HomeScreen() {
         setIsModalVisible(false);
         setEditingTask(null);
     };
+
+    const filteredPending = useMemo(() => {
+        if (activeFilter === 'overdue') {
+            return pendingTasks.filter(t => t.deadline && isDeadlineOverdue(t.deadline));
+        }
+        if (activeFilter === 'dueSoon') {
+            return pendingTasks.filter(t => t.deadline && !isDeadlineOverdue(t.deadline) && isDeadlineSoon(t.deadline));
+        }
+        return pendingTasks;
+    }, [pendingTasks, activeFilter]);
 
     const renderTask = ({ item }: { item: any }) => (
         <TaskCard
@@ -55,7 +67,14 @@ export default function HomeScreen() {
             <View style={styles.header}>
                 <View style={styles.headerLeft}>
                     <Text style={styles.appTitle}>TaskFlow</Text>
-                    <Text style={styles.currentDate}>{formatDate()}</Text>
+                    <View style={styles.headerSubRow}>
+                        <Text style={styles.currentDate}>{formatDate()}</Text>
+                        <View style={styles.summaryPill}>
+                            <Text style={styles.summaryPillText}>
+                                {completedTasks.length}/{tasks.length} done
+                            </Text>
+                        </View>
+                    </View>
                 </View>
 
                 {completedTasks.length > 0 && (
@@ -71,19 +90,23 @@ export default function HomeScreen() {
             </View>
 
             {/* Dashboard Stats */}
-            <DashboardStats tasks={tasks} />
+            <DashboardStats
+                tasks={tasks}
+                activeFilter={activeFilter}
+                onFilterChange={(filter) => setActiveFilter(filter)}
+            />
 
             {/* Task list */}
-            {pendingTasks.length === 0 ? (
+            {filteredPending.length === 0 ? (
                 <EmptyState />
             ) : (
                 <>
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Active Tasks</Text>
-                        <Text style={styles.sectionCount}>{pendingTasks.length}</Text>
+                        <Text style={styles.sectionCount}>{filteredPending.length}</Text>
                     </View>
                     <FlatList
-                        data={pendingTasks}
+                        data={filteredPending}
                         renderItem={renderTask}
                         keyExtractor={(item) => item.id}
                         contentContainerStyle={styles.listContent}
@@ -116,8 +139,8 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 20,
-        paddingTop: 16,
-        paddingBottom: 20,
+        paddingTop: 12,
+        paddingBottom: 18,
     },
     headerLeft: {
         flex: 1,
@@ -126,13 +149,32 @@ const styles = StyleSheet.create({
         fontSize: typography.fontSize['3xl'],
         fontWeight: typography.fontWeight.bold,
         color: colors.text,
-        letterSpacing: -0.5,
-        marginBottom: 4,
+        letterSpacing: -0.6,
+        marginBottom: 6,
     },
     currentDate: {
         fontSize: typography.fontSize.sm,
         color: colors.textMuted,
         fontWeight: typography.fontWeight.medium,
+    },
+    headerSubRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    summaryPill: {
+        backgroundColor: colors.surfaceLight,
+        borderRadius: 12,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderWidth: 1,
+        borderColor: colors.border,
+    },
+    summaryPillText: {
+        color: colors.textSecondary,
+        fontSize: typography.fontSize.xs,
+        fontWeight: typography.fontWeight.semibold,
+        letterSpacing: 0.2,
     },
     completedButton: {
         backgroundColor: colors.success + '15',
